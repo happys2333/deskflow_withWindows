@@ -8,6 +8,7 @@
 
 #pragma once
 
+#include "common/Enums.h"
 #include "deskflow/ClipboardChunk.h"
 #include "deskflow/ClipboardTypes.h"
 #include "deskflow/KeyTypes.h"
@@ -77,6 +78,8 @@ private:
   // event handlers
   void handleData();
   void handleKeepAliveAlarm();
+  void requestDisconnect(const char *msg);
+  void requestRefuseConnection(deskflow::core::ConnectionRefusal reason, const char *msg);
 
   // message handlers
   void enter();

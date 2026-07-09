@@ -46,8 +46,28 @@ set(app "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/@CMAKE_PROJECT_PROPER_NAME@.app")
 if(NOT EXISTS "${app}")
   set(app "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/ALL_IN_ONE/@CMAKE_PROJECT_PROPER_NAME@.app")
 endif()
+set(core_exe "${app}/Contents/MacOS/@CMAKE_PROJECT_NAME@-core")
 
 clear_bundle_metadata("${app}")
-run_checked("Codesigning bundle" /usr/bin/codesign --force --deep --sign - "${app}")
+run_checked(
+  "Codesigning core helper"
+  /usr/bin/codesign
+  --force
+  --sign
+  -
+  --identifier
+  "@CMAKE_PROJECT_REV_FQDN@.core"
+  "${core_exe}"
+)
+run_checked(
+  "Codesigning bundle"
+  /usr/bin/codesign
+  --force
+  --deep
+  --preserve-metadata=identifier
+  --sign
+  -
+  "${app}"
+)
 clear_bundle_metadata("${app}")
 run_checked("Verifying bundle signature" /usr/bin/codesign --verify --deep --strict --verbose=4 "${app}")
