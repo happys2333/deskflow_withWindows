@@ -6,7 +6,11 @@ runs:
 
   steps:
     - run: |
-        echo "DESKFLOW_VERSION=$(git describe --long | sed 's/-/./g;s/v//g'  | grep -o '^[0-9]*.[0-9]*.[0-9]*.[0-9]*')">> $GITHUB_ENV
+        DESKFLOW_VERSION=$(git describe --long --tags --match 'v*' 2>/dev/null | sed 's/-/./g;s/v//g' | grep -o '^[0-9]*.[0-9]*.[0-9]*.[0-9]*' || true)
+        if [[ -z "$DESKFLOW_VERSION" ]]; then
+          DESKFLOW_VERSION="0.0.0.$(git rev-list --count HEAD)"
+        fi
+        echo "DESKFLOW_VERSION=$DESKFLOW_VERSION">> $GITHUB_ENV
         if [[ "$GITHUB_REF" == *"tags/v"* ]]; then
           echo "DESKFLOW_PACKAGE_VERSION=$(echo $GITHUB_REF | sed 's,refs/tags/v,,g')">> $GITHUB_ENV
         else
