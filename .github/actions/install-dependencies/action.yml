@@ -44,8 +44,19 @@ runs:
                 glib2-devel libXtst-devel libxkbfile-devel qt6-qtbase-devel qt6-qttools-devel \
                 gtk3-devel gtest-devel gmock-devel libei-devel libportal-devel help2man doxygen
             elif [ ${{inputs.like}} == "suse" ]; then
-              zypper refresh
-              zypper install -y --force-resolution \
+              zypper_retry() {
+                local attempt
+                for attempt in 1 2 3; do
+                  "$@" && return 0
+                  if [ "$attempt" -eq 3 ]; then
+                    return 1
+                  fi
+                  zypper --non-interactive refresh --force || true
+                  sleep $((attempt * 15))
+                done
+              }
+              zypper_retry zypper --non-interactive refresh --force
+              zypper_retry zypper --non-interactive install -y --force-resolution \
                 cmake make ninja gcc-c++ rpm-build libopenssl-devel \
                 glib2-devel libXtst-devel libxkbfile-devel qt6-base-devel qt6-tools-devel \
                 qt6-linguist-devel gtk3-devel doxygen \
@@ -107,4 +118,3 @@ runs:
         wix extension add --global WixToolset.Util.wixext/5.0.2
         wix extension add --global WixToolset.Firewall.wixext/5.0.2
       shell: pwsh
-

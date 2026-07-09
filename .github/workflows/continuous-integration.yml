@@ -225,8 +225,19 @@ jobs:
           elif [ "${{matrix.target.like}}" == "fedora" ]; then
             dnf install -y git
           elif [ "${{matrix.target.like}}" == "suse" ]; then
-            zypper refresh
-            zypper install -y --force-resolution git
+            zypper_retry() {
+              local attempt
+              for attempt in 1 2 3; do
+                "$@" && return 0
+                if [ "$attempt" -eq 3 ]; then
+                  return 1
+                fi
+                zypper --non-interactive refresh --force || true
+                sleep $((attempt * 15))
+              done
+            }
+            zypper_retry zypper --non-interactive refresh --force
+            zypper_retry zypper --non-interactive install -y --force-resolution git
           elif [ "${{matrix.target.like}}" == "arch" ]; then
             pacman -Syu --noconfirm git
           else
