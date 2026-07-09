@@ -16,9 +16,25 @@ runs:
       run: |
         if [ "$RUNNER_OS" == "macOS" ]; then
           dmg=$(ls build/deskflow-*.dmg | head -1)
-          echo "Y" | hdiutil attach "$dmg" -nobrowse -mountpoint /tmp/deskflow-dmg
-          /tmp/deskflow-dmg/Deskflow.app/Contents/MacOS/deskflow-core --version
-          hdiutil detach /tmp/deskflow-dmg
+          mountpoint=/tmp/deskflow-dmg
+          tmpdir=$(mktemp -d)
+          trap 'hdiutil detach "$mountpoint" >/dev/null 2>&1 || true; rm -rf "$tmpdir"' EXIT
+
+          hdiutil detach "$mountpoint" >/dev/null 2>&1 || true
+          echo "Y" | hdiutil attach "$dmg" -nobrowse -mountpoint "$mountpoint"
+
+          app="$tmpdir/Deskflow.app"
+          ditto --norsrc "$mountpoint/Deskflow.app" "$app"
+          codesign --verify --deep --verbose=4 "$app"
+          if otool -L "$app/Contents/MacOS/deskflow-core" | grep -E '^[[:space:]]*/.*Qt.*framework'; then
+            echo "deskflow-core still links to external Qt frameworks"
+            exit 1
+          fi
+          "$app/Contents/MacOS/deskflow-core" --version
+
+          hdiutil detach "$mountpoint"
+          rm -rf "$tmpdir"
+          trap - EXIT
 
         elif [ "$RUNNER_OS" == "Windows" ]; then
           7z x build/deskflow-*-portable.7z -otmp/deskflow-pkg

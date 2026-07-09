@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: (C) 2026 Deskflow Contributors
+# SPDX-License-Identifier: MIT
+
+function(run_checked description)
+  set(command ${ARGN})
+  execute_process(
+    COMMAND ${command}
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE output
+    ERROR_VARIABLE error
+  )
+
+  if(NOT result EQUAL 0)
+    string(REPLACE ";" " " command_text "${command}")
+    message(FATAL_ERROR "${description} failed (${result}): ${command_text}\n${output}${error}")
+  endif()
+
+  if(output)
+    message(STATUS "${output}")
+  endif()
+
+  if(error)
+    message(STATUS "${error}")
+  endif()
+endfunction()
+
+set(app "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@CMAKE_PROJECT_PROPER_NAME@.app")
+set(core_exe "${app}/Contents/MacOS/@CMAKE_PROJECT_NAME@-core")
+set(clean_app "${app}.clean")
+
+run_checked("Deploying Qt dependencies" "@DEPLOYQT@" "${app}" "-executable=${core_exe}")
+
+file(REMOVE_RECURSE "${clean_app}")
+run_checked("Copying bundle without resource metadata" /usr/bin/ditto --norsrc "${app}" "${clean_app}")
+file(REMOVE_RECURSE "${app}")
+file(RENAME "${clean_app}" "${app}")
+
+run_checked("Codesigning bundle" /usr/bin/codesign --force --deep --sign - "${app}")
+run_checked("Verifying bundle signature" /usr/bin/codesign --verify --deep --verbose=4 "${app}")

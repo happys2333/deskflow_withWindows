@@ -140,7 +140,7 @@ int main(int argc, char *argv[])
   }
 
   if (!checkMacAssistiveDevices()) {
-    return 1;
+    qWarning("Accessibility permission has not been granted yet");
   }
 #endif
 

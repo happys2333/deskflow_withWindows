@@ -9,11 +9,10 @@ set(OSX_BUNDLE ${BUILD_OSX_BUNDLE})
 set(OS_STRING "macos-${BUILD_ARCHITECTURE}")
 
 if (OSX_BUNDLE)
-  install(CODE "execute_process(COMMAND
-    ${DEPLOYQT}
-    \"\${CMAKE_INSTALL_PREFIX}/${CMAKE_PROJECT_PROPER_NAME}.app\"
-    -timestamp -codesign=-
-  )")
+  set(MAC_DEPLOY_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/mac-deploy-bundle.cmake")
+  configure_file("${MY_DIR}/deploy-bundle.cmake.in" "${MAC_DEPLOY_SCRIPT}" @ONLY)
+  install(SCRIPT "${MAC_DEPLOY_SCRIPT}")
+
   set(CPACK_PACKAGE_ICON "${MY_DIR}/dmg-volume.icns")
   set(CPACK_DMG_BACKGROUND_IMAGE "${MY_DIR}/dmg-background.tiff")
   set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${MY_DIR}/generate_ds_store.applescript")
