@@ -11,6 +11,7 @@
 #include "arch/ArchException.h"
 #include "arch/unix/ArchMultithreadPosix.h"
 #include "arch/unix/XArchUnix.h"
+#include "base/Log.h"
 
 #include <arpa/inet.h>
 #include <cstring>
@@ -31,6 +32,19 @@ static const int s_family[] = {
 };
 
 static const int s_type[] = {SOCK_DGRAM, SOCK_STREAM};
+
+namespace {
+constexpr int kTcpKeepAliveIdleSeconds = 30;
+constexpr int kTcpKeepAliveIntervalSeconds = 10;
+constexpr int kTcpKeepAliveProbeCount = 3;
+
+void setTcpKeepAliveOption(int fd, int option, int value, const char *name)
+{
+  if (setsockopt(fd, IPPROTO_TCP, option, reinterpret_cast<const optval_t *>(&value), sizeof(value)) == -1) {
+    LOG_DEBUG("failed to set TCP keepalive option %s: %s", name, strerror(errno));
+  }
+}
+} // namespace
 
 //
 // ArchNetworkBSD::Deps
@@ -428,6 +442,30 @@ void ArchNetworkBSD::setKeepAliveOnSocket(ArchSocket s, bool keepAlive)
   if (setsockopt(s->m_fd, SOL_SOCKET, SO_KEEPALIVE, reinterpret_cast<const optval_t *>(&opt), sizeof(opt)) == -1) {
     throwError(errno);
   }
+
+  if (!keepAlive) {
+    return;
+  }
+
+#if defined(TCP_KEEPIDLE)
+  setTcpKeepAliveOption(s->m_fd, TCP_KEEPIDLE, kTcpKeepAliveIdleSeconds, "TCP_KEEPIDLE");
+#elif defined(TCP_KEEPALIVE)
+  setTcpKeepAliveOption(s->m_fd, TCP_KEEPALIVE, kTcpKeepAliveIdleSeconds, "TCP_KEEPALIVE");
+#endif
+
+#if defined(TCP_KEEPINTVL)
+  setTcpKeepAliveOption(s->m_fd, TCP_KEEPINTVL, kTcpKeepAliveIntervalSeconds, "TCP_KEEPINTVL");
+#endif
+
+#if defined(TCP_KEEPCNT)
+  setTcpKeepAliveOption(s->m_fd, TCP_KEEPCNT, kTcpKeepAliveProbeCount, "TCP_KEEPCNT");
+#endif
+
+#if defined(TCP_USER_TIMEOUT)
+  constexpr int kTcpUserTimeoutMs =
+      (kTcpKeepAliveIdleSeconds + kTcpKeepAliveIntervalSeconds * kTcpKeepAliveProbeCount) * 1000;
+  setTcpKeepAliveOption(s->m_fd, TCP_USER_TIMEOUT, kTcpUserTimeoutMs, "TCP_USER_TIMEOUT");
+#endif
 }
 
 bool ArchNetworkBSD::setReuseAddrOnSocket(ArchSocket s, bool reuse)

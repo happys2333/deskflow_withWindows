@@ -14,6 +14,7 @@
 #include "base/Log.h"
 
 #include <malloc.h>
+#include <mstcpip.h>
 
 static const int s_family[] = {
     PF_UNSPEC,
@@ -54,6 +55,14 @@ static BOOL(PASCAL FAR *WSAResetEvent_winsock)(WSAEVENT);
 static int(PASCAL FAR *WSAEventSelect_winsock)(SOCKET, WSAEVENT, long);
 static DWORD(PASCAL FAR *WSAWaitForMultipleEvents_winsock)(DWORD, const WSAEVENT FAR *, BOOL, DWORD, BOOL);
 static int(PASCAL FAR *WSAEnumNetworkEvents_winsock)(SOCKET, WSAEVENT, LPWSANETWORKEVENTS);
+static int(PASCAL FAR *WSAIoctl_winsock)(
+    SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE
+);
+
+namespace {
+constexpr DWORD kTcpKeepAliveIdleMs = 30000;
+constexpr DWORD kTcpKeepAliveIntervalMs = 10000;
+} // namespace
 
 #undef FD_ISSET
 #define FD_ISSET(fd, set) WSAFDIsSet_winsock((SOCKET)(fd), (fd_set FAR *)(set))
@@ -189,6 +198,12 @@ void ArchNetworkWinsock::initModule(HMODULE module)
       DWORD(PASCAL FAR *)(DWORD, const WSAEVENT FAR *, BOOL, DWORD, BOOL)
   );
   setfunc(WSAEnumNetworkEvents_winsock, WSAEnumNetworkEvents, int(PASCAL FAR *)(SOCKET, WSAEVENT, LPWSANETWORKEVENTS));
+  setfunc(
+      WSAIoctl_winsock, WSAIoctl,
+      int(PASCAL FAR *)(
+          SOCKET, DWORD, LPVOID, DWORD, LPVOID, DWORD, LPDWORD, LPWSAOVERLAPPED, LPWSAOVERLAPPED_COMPLETION_ROUTINE
+      )
+  );
 
   s_networkModule = module;
 }
@@ -613,6 +628,23 @@ void ArchNetworkWinsock::setKeepAliveOnSocket(ArchSocket s, bool keepAlive)
   int opt = keepAlive;
   if (setsockopt_winsock(s->m_socket, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt)) == SOCKET_ERROR) {
     throwError(getsockerror_winsock());
+  }
+
+  if (!keepAlive) {
+    return;
+  }
+
+  tcp_keepalive keepAliveValues;
+  keepAliveValues.onoff = 1;
+  keepAliveValues.keepalivetime = kTcpKeepAliveIdleMs;
+  keepAliveValues.keepaliveinterval = kTcpKeepAliveIntervalMs;
+
+  DWORD bytesReturned = 0;
+  if (WSAIoctl_winsock(
+          s->m_socket, SIO_KEEPALIVE_VALS, &keepAliveValues, sizeof(keepAliveValues), nullptr, 0, &bytesReturned,
+          nullptr, nullptr
+      ) == SOCKET_ERROR) {
+    LOG_DEBUG("failed to set TCP keepalive intervals: %d", getsockerror_winsock());
   }
 }
 

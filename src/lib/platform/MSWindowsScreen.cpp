@@ -1342,9 +1342,11 @@ void MSWindowsScreen::onClipboardChange()
     if (m_ownClipboard) {
       LOG_DEBUG("clipboard changed: lost ownership");
       m_ownClipboard = false;
-      sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardClipboard);
-      sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardSelection);
+    } else {
+      LOG_DEBUG("clipboard changed: external owner");
     }
+    sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardClipboard);
+    sendClipboardEvent(EventTypes::ClipboardGrabbed, kClipboardSelection);
   } else if (!m_ownClipboard) {
     LOG_DEBUG("clipboard changed: %s owned", kAppId);
     m_ownClipboard = true;

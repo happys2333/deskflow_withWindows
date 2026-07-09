@@ -336,8 +336,8 @@ ServerProxy::ConnectionResult ServerProxy::parseMessage(const uint8_t *code)
 
 void ServerProxy::handleKeepAliveAlarm()
 {
-  LOG_INFO("server is dead");
-  m_client->disconnect("server is not responding");
+  LOG_INFO("server is not responding; scheduling reconnect");
+  m_events->addEvent(Event(EventTypes::SocketDisconnected, m_stream->getEventTarget()));
 }
 
 void ServerProxy::onInfoChanged()
