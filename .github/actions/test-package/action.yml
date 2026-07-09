@@ -16,11 +16,10 @@ runs:
       run: |
         if [ "$RUNNER_OS" == "macOS" ]; then
           dmg=$(ls build/deskflow-*.dmg | head -1)
-          mountpoint=/tmp/deskflow-dmg
+          mountpoint=$(mktemp -d)
           tmpdir=$(mktemp -d)
-          trap 'hdiutil detach "$mountpoint" >/dev/null 2>&1 || true; rm -rf "$tmpdir"' EXIT
+          trap 'hdiutil detach "$mountpoint" >/dev/null 2>&1 || true; rm -rf "$mountpoint" "$tmpdir"' EXIT
 
-          hdiutil detach "$mountpoint" >/dev/null 2>&1 || true
           echo "Y" | hdiutil attach "$dmg" -nobrowse -mountpoint "$mountpoint"
 
           app="$tmpdir/Deskflow.app"
@@ -33,7 +32,7 @@ runs:
           "$app/Contents/MacOS/deskflow-core" --version
 
           hdiutil detach "$mountpoint"
-          rm -rf "$tmpdir"
+          rm -rf "$mountpoint" "$tmpdir"
           trap - EXIT
 
         elif [ "$RUNNER_OS" == "Windows" ]; then
