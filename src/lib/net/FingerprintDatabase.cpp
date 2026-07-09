@@ -7,7 +7,9 @@
 
 #include "FingerprintDatabase.h"
 
+#include <QDir>
 #include <QFile>
+#include <QFileInfo>
 #include <QTextStream>
 
 void FingerprintDatabase::read(const QString &path)
@@ -46,11 +48,23 @@ void FingerprintDatabase::readStream(QTextStream &in)
 
 bool FingerprintDatabase::write(const QString &path)
 {
-  QFile file(path);
-  if (!file.open(QIODevice::WriteOnly))
+  const QFileInfo info(path);
+  auto dir = info.absoluteDir();
+  if (!dir.exists() && !dir.mkpath(".")) {
     return false;
+  }
+
+  QFile file(path);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+    return false;
+
   QTextStream out(&file);
-  return (writeStream(out));
+  if (!writeStream(out)) {
+    return false;
+  }
+
+  out.flush();
+  return file.flush();
 }
 
 bool FingerprintDatabase::writeStream(QTextStream &out)

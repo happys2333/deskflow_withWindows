@@ -10,6 +10,9 @@
 #include "net/Fingerprint.h"
 #include "net/FingerprintDatabase.h"
 
+#include <QFile>
+#include <QTemporaryDir>
+
 void FingerprintDatabaseTests::readFile()
 {
   QString data = R"(
@@ -49,6 +52,48 @@ void FingerprintDatabaseTests::writeFile()
   QCOMPARE(stream.readAll(), R"(v2:sha1:abcdef0001020304050607080910111213141516
 v2:sha1:0001020304050607080910111213141516abcdef
 )");
+}
+
+void FingerprintDatabaseTests::writeFileCreatesParentDirectory()
+{
+  QTemporaryDir tempDir;
+  QVERIFY(tempDir.isValid());
+
+  const auto path = QStringLiteral("%1/tls/trusted-servers").arg(tempDir.path());
+
+  FingerprintDatabase db;
+  db.addTrusted(
+      {QCryptographicHash::Sha1, QByteArray::fromHex(QString("ABCDEF0001020304050607080910111213141516").toLatin1())}
+  );
+
+  QVERIFY(db.write(path));
+  QVERIFY(QFile::exists(path));
+}
+
+void FingerprintDatabaseTests::writeFileTruncatesExistingContent()
+{
+  QTemporaryDir tempDir;
+  QVERIFY(tempDir.isValid());
+
+  const auto path = QStringLiteral("%1/trusted-servers").arg(tempDir.path());
+  QFile file(path);
+  QVERIFY(file.open(QIODevice::WriteOnly | QIODevice::Text));
+  QVERIFY(
+      file.write(
+          "v2:sha256:0000000000000000000000000000000000000000000000000000000000000000\n"
+          "v2:sha256:1111111111111111111111111111111111111111111111111111111111111111\n"
+      ) > 0
+  );
+  file.close();
+
+  FingerprintDatabase db;
+  db.addTrusted(
+      {QCryptographicHash::Sha1, QByteArray::fromHex(QString("ABCDEF0001020304050607080910111213141516").toLatin1())}
+  );
+
+  QVERIFY(db.write(path));
+  QVERIFY(file.open(QIODevice::ReadOnly | QIODevice::Text));
+  QCOMPARE(QString::fromUtf8(file.readAll()), QStringLiteral("v2:sha1:abcdef0001020304050607080910111213141516\n"));
 }
 
 void FingerprintDatabaseTests::clear()

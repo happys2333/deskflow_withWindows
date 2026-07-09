@@ -91,7 +91,7 @@ When prompted by the OS, go to the settings and enable the access.
 If you are upgrading and you already have `Deskflow` or `deskflow`
 on the allowed list you will need to manually remove them before accessibility access can be granted to the new version.
 
-macOS users who download directly from releases may need to run `xattr -c /Applications/Deskflow.app` after copying the app to the `Applications` dir.
+macOS users who download directly from releases may need to run `xattr -dr com.apple.quarantine "/Applications/Deskflow.app"` after copying the app to the `Applications` dir.
 
 It is recommended to install Deskflow using [Homebrew](https://brew.sh) from our [homebrew-tap](https://github.com/deskflow/homebrew-tap)
 

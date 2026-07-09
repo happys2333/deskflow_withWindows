@@ -12,6 +12,8 @@ class FingerprintDatabaseTests : public QObject
 private Q_SLOTS:
   void readFile();
   void writeFile();
+  void writeFileCreatesParentDirectory();
+  void writeFileTruncatesExistingContent();
   void clear();
   void trusted();
 };
