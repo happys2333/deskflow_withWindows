@@ -1,0 +1,53 @@
+# SPDX-FileCopyrightText: (C) 2026 Deskflow Contributors
+# SPDX-License-Identifier: MIT
+
+function(run_checked description)
+  set(command ${ARGN})
+  execute_process(
+    COMMAND ${command}
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE output
+    ERROR_VARIABLE error
+  )
+
+  if(NOT result EQUAL 0)
+    string(REPLACE ";" " " command_text "${command}")
+    message(FATAL_ERROR "${description} failed (${result}): ${command_text}\n${output}${error}")
+  endif()
+
+  if(output)
+    message(STATUS "${output}")
+  endif()
+
+  if(error)
+    message(STATUS "${error}")
+  endif()
+endfunction()
+
+function(clear_bundle_metadata app)
+  run_checked(
+    "Clearing bundle metadata"
+    /bin/sh
+    -c
+    [=[
+app="$1"
+if [ -e "$app" ]
+then
+  /usr/bin/find "$app" -exec /usr/bin/xattr -d com.apple.FinderInfo {} + 2>/dev/null || true
+  /usr/bin/find "$app" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} + 2>/dev/null || true
+fi
+]=]
+    clear-bundle-metadata
+    "${app}"
+  )
+endfunction()
+
+set(app "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/@CMAKE_PROJECT_PROPER_NAME@.app")
+if(NOT EXISTS "${app}")
+  set(app "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/ALL_IN_ONE/@CMAKE_PROJECT_PROPER_NAME@.app")
+endif()
+
+clear_bundle_metadata("${app}")
+run_checked("Codesigning bundle" /usr/bin/codesign --force --deep --sign - "${app}")
+clear_bundle_metadata("${app}")
+run_checked("Verifying bundle signature" /usr/bin/codesign --verify --deep --strict --verbose=4 "${app}")

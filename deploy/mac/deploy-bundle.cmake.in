@@ -24,6 +24,104 @@ function(run_checked description)
   endif()
 endfunction()
 
+function(is_mach_o path output_var)
+  execute_process(
+    COMMAND /usr/bin/file "${path}"
+    RESULT_VARIABLE result
+    OUTPUT_VARIABLE output
+    ERROR_QUIET
+  )
+
+  if(result EQUAL 0 AND output MATCHES "Mach-O")
+    set("${output_var}" TRUE PARENT_SCOPE)
+  else()
+    set("${output_var}" FALSE PARENT_SCOPE)
+  endif()
+endfunction()
+
+function(fix_framework_install_names app)
+  set(frameworks_dir "${app}/Contents/Frameworks")
+  if(NOT IS_DIRECTORY "${frameworks_dir}")
+    return()
+  endif()
+
+  file(GLOB_RECURSE framework_files LIST_DIRECTORIES FALSE "${frameworks_dir}/*")
+  foreach(candidate IN LISTS framework_files)
+    if(IS_SYMLINK "${candidate}")
+      continue()
+    endif()
+
+    is_mach_o("${candidate}" is_macho)
+    if(NOT is_macho)
+      continue()
+    endif()
+
+    file(RELATIVE_PATH relative_name "${frameworks_dir}" "${candidate}")
+    run_checked(
+      "Fixing install name for ${relative_name}"
+      /usr/bin/install_name_tool
+      -id "@rpath/${relative_name}"
+      "${candidate}"
+    )
+  endforeach()
+endfunction()
+
+function(assert_no_local_dependency_paths app)
+  file(GLOB_RECURSE bundle_files LIST_DIRECTORIES FALSE "${app}/*")
+  set(bad_paths "")
+
+  foreach(candidate IN LISTS bundle_files)
+    if(IS_SYMLINK "${candidate}")
+      continue()
+    endif()
+
+    is_mach_o("${candidate}" is_macho)
+    if(NOT is_macho)
+      continue()
+    endif()
+
+    execute_process(
+      COMMAND /usr/bin/otool -L "${candidate}"
+      RESULT_VARIABLE result
+      OUTPUT_VARIABLE output
+      ERROR_VARIABLE error
+    )
+
+    if(NOT result EQUAL 0)
+      message(FATAL_ERROR "Inspecting dependencies failed (${result}): ${candidate}\n${output}${error}")
+    endif()
+
+    string(REPLACE "\n" ";" dependency_lines "${output}")
+    foreach(line IN LISTS dependency_lines)
+      if(line MATCHES "^[ \t]+(/(Users|Applications|Volumes|opt|usr/local|private/tmp|tmp|var/folders)/|[^ \t]+/Cellar/)")
+        string(APPEND bad_paths "\n[${candidate}]\n${line}\n")
+      endif()
+    endforeach()
+  endforeach()
+
+  if(bad_paths)
+    message(FATAL_ERROR "Bundle contains local dependency paths:${bad_paths}")
+  endif()
+endfunction()
+
+function(clear_bundle_metadata app)
+  run_checked(
+    "Clearing bundle metadata"
+    /bin/sh
+    -c
+    [=[
+app="$1"
+if [ -e "$app" ]
+then
+  /usr/bin/find "$app" -exec /usr/bin/xattr -d com.apple.FinderInfo {} + 2>/dev/null || true
+  /usr/bin/find "$app" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} + 2>/dev/null || true
+fi
+]=]
+    clear-bundle-metadata
+    "${app}"
+  )
+endfunction()
+
 set(app "$ENV{DESTDIR}${CMAKE_INSTALL_PREFIX}/@CMAKE_PROJECT_PROPER_NAME@.app")
 set(core_exe "${app}/Contents/MacOS/@CMAKE_PROJECT_NAME@-core")
 set(clean_app "${app}.clean")
@@ -35,5 +133,6 @@ run_checked("Copying bundle without resource metadata" /usr/bin/ditto --norsrc "
 file(REMOVE_RECURSE "${app}")
 file(RENAME "${clean_app}" "${app}")
 
-run_checked("Codesigning bundle" /usr/bin/codesign --force --deep --sign - "${app}")
-run_checked("Verifying bundle signature" /usr/bin/codesign --verify --deep --verbose=4 "${app}")
+fix_framework_install_names("${app}")
+assert_no_local_dependency_paths("${app}")
+clear_bundle_metadata("${app}")

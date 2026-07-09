@@ -24,11 +24,29 @@ runs:
 
           app="$tmpdir/Deskflow.app"
           ditto --norsrc "$mountpoint/Deskflow.app" "$app"
-          codesign --verify --deep --verbose=4 "$app"
-          if otool -L "$app/Contents/MacOS/deskflow-core" | grep -E '^[[:space:]]*/.*Qt.*framework'; then
-            echo "deskflow-core still links to external Qt frameworks"
+          codesign --verify --deep --strict --verbose=4 "$app"
+
+          bad_deps="$tmpdir/macos-local-deps.txt"
+          while IFS= read -r -d '' candidate; do
+            if ! file "$candidate" | grep -q 'Mach-O'; then
+              continue
+            fi
+
+            deps=$(otool -L "$candidate" | grep -E '^[[:space:]]+(/(Users|Applications|Volumes|opt|usr/local|private/tmp|tmp|var/folders)/|[^[:space:]]*/Cellar/)' || true)
+            if [ -n "$deps" ]; then
+              {
+                echo "[$candidate]"
+                echo "$deps"
+              } >> "$bad_deps"
+            fi
+          done < <(find "$app" -type f -print0)
+
+          if [ -s "$bad_deps" ]; then
+            echo "macOS package still contains local dependency paths:"
+            cat "$bad_deps"
             exit 1
           fi
+
           "$app/Contents/MacOS/deskflow-core" --version
 
           hdiutil detach "$mountpoint"

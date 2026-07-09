@@ -13,6 +13,10 @@ if (OSX_BUNDLE)
   configure_file("${MY_DIR}/deploy-bundle.cmake.in" "${MAC_DEPLOY_SCRIPT}" @ONLY)
   install(SCRIPT "${MAC_DEPLOY_SCRIPT}")
 
+  set(MAC_PRE_CPACK_SCRIPT "${CMAKE_CURRENT_BINARY_DIR}/mac-pre-cpack.cmake")
+  configure_file("${MY_DIR}/pre-cpack.cmake.in" "${MAC_PRE_CPACK_SCRIPT}" @ONLY)
+  set(CPACK_PRE_BUILD_SCRIPTS "${MAC_PRE_CPACK_SCRIPT}")
+
   set(CPACK_PACKAGE_ICON "${MY_DIR}/dmg-volume.icns")
   set(CPACK_DMG_BACKGROUND_IMAGE "${MY_DIR}/dmg-background.tiff")
   set(CPACK_DMG_DS_STORE_SETUP_SCRIPT "${MY_DIR}/generate_ds_store.applescript")
