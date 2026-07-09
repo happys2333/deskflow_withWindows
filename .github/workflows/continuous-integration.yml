@@ -402,8 +402,19 @@ jobs:
       - name: Get version
         uses: ./.github/actions/get-version
 
-      - name: Lint appsteam
-        run: flatpak-builder-lint appstream deploy/linux/org.deskflow.deskflow.metainfo.xml
+      - name: Lint appstream
+        run: |
+          for attempt in 1 2 3; do
+            if flatpak-builder-lint appstream deploy/linux/org.deskflow.deskflow.metainfo.xml; then
+              exit 0
+            fi
+
+            if [ "$attempt" -eq 3 ]; then
+              exit 1
+            fi
+
+            sleep $((attempt * 30))
+          done
 
       - name: Lint manifest
         run: flatpak-builder-lint manifest deploy/linux/flatpak/org.deskflow.deskflow.yml

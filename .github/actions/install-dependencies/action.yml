@@ -19,8 +19,8 @@ inputs:
 
 outputs:
   vcpkg-cmake-config:
-    description: "windows vcpkg output for cmaket"
-    value: ${{ steps.vcpkg.outputs.vcpkg-cmake-config }}
+    description: "windows vcpkg output for cmake"
+    value: ${{ steps.vcpkg.outputs.vcpkg-cmake-config || steps.vcpkg_retry_1.outputs.vcpkg-cmake-config || steps.vcpkg_retry_2.outputs.vcpkg-cmake-config }}
 
 runs:
   using: "composite"
@@ -87,6 +87,40 @@ runs:
     - name: Build and cache vcpkg
       if: ${{ runner.os == 'Windows' }}
       id: vcpkg
+      continue-on-error: true
+      uses: johnwason/vcpkg-action@v8
+      with:
+        pkgs: gtest openssl
+        extra-args: --classic --host-triplet=${{inputs.vcpkg-triplet}}
+        triplet: ${{inputs.vcpkg-triplet}}
+        token: ${{ github.token }}
+        revision: master
+
+    - name: Pause before retrying vcpkg
+      if: ${{ runner.os == 'Windows' && steps.vcpkg.outcome == 'failure' }}
+      run: sleep 30
+      shell: bash
+
+    - name: Build and cache vcpkg retry 1
+      if: ${{ runner.os == 'Windows' && steps.vcpkg.outcome == 'failure' }}
+      id: vcpkg_retry_1
+      continue-on-error: true
+      uses: johnwason/vcpkg-action@v8
+      with:
+        pkgs: gtest openssl
+        extra-args: --classic --host-triplet=${{inputs.vcpkg-triplet}}
+        triplet: ${{inputs.vcpkg-triplet}}
+        token: ${{ github.token }}
+        revision: master
+
+    - name: Pause before retrying vcpkg again
+      if: ${{ runner.os == 'Windows' && steps.vcpkg.outcome == 'failure' && steps.vcpkg_retry_1.outcome == 'failure' }}
+      run: sleep 60
+      shell: bash
+
+    - name: Build and cache vcpkg retry 2
+      if: ${{ runner.os == 'Windows' && steps.vcpkg.outcome == 'failure' && steps.vcpkg_retry_1.outcome == 'failure' }}
+      id: vcpkg_retry_2
       uses: johnwason/vcpkg-action@v8
       with:
         pkgs: gtest openssl
