@@ -122,12 +122,10 @@ OSXScreen::OSXScreen(IEventQueue *events, bool isPrimary, bool enableLangSync)
       m_powerManager.disableSleep();
     }
 
-    // only needed when running as a server.
-    if (m_isPrimary) {
-      // we can't pass options to show the dialog, this must be done by the gui.
-      if (!AXIsProcessTrusted()) {
-        throw std::runtime_error("assistive devices does not trust this process, allow it in system settings.");
-      }
+    // Primary input capture and secondary input injection both need Accessibility.
+    // The GUI requests permission before starting the core process.
+    if (!AXIsProcessTrusted()) {
+      throw std::runtime_error("assistive devices does not trust this process, allow it in system settings.");
     }
 
     // install display manager notification handler
