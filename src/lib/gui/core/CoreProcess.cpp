@@ -99,11 +99,12 @@ QString CoreProcess::wrapIpv6(const QString &address)
 // CoreProcess
 //
 
-CoreProcess::CoreProcess(const ServerConfig &serverConfig)
+CoreProcess::CoreProcess(const ServerConfig &serverConfig, const QString &appPath)
     : m_serverConfig(serverConfig),
       m_daemonIpcClient{new ipc::DaemonIpcClient(this)}
 {
-  m_appPath = QStringLiteral("%1/%2").arg(QCoreApplication::applicationDirPath(), kCoreBinName);
+  m_appPath =
+      appPath.isEmpty() ? QStringLiteral("%1/%2").arg(QCoreApplication::applicationDirPath(), kCoreBinName) : appPath;
   if (!QFile::exists(m_appPath)) {
     qFatal("core server binary does not exist");
     return;
@@ -595,6 +596,7 @@ void CoreProcess::onCoreIpcMessageReceived(const QString &command, const QString
     }
   } else if (command == "retryIn") {
     Q_EMIT retryIn(args.toInt());
+    setConnectionState(ConnectionState::Connecting);
   } else if (command == "peerFingerprint") {
     Q_EMIT peerFingerprint(args);
   } else if (command == "missingKeyboardLayouts") {

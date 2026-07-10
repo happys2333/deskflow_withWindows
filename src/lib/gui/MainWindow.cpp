@@ -48,6 +48,7 @@
 #include <QRegularExpressionValidator>
 #include <QScreen>
 #include <QScrollBar>
+#include <QShowEvent>
 #include <QTimer>
 
 #include <memory>
@@ -72,9 +73,9 @@ bool shouldRevealLogForDiagnostics(const QString &line)
 
 } // namespace
 
-MainWindow::MainWindow()
+MainWindow::MainWindow(const QString &corePath)
     : ui{std::make_unique<Ui::MainWindow>()},
-      m_coreProcess(m_serverConfig),
+      m_coreProcess(m_serverConfig, corePath),
       m_trayIcon{new QSystemTrayIcon(this)},
       m_guiDupeChecker{new QLocalServer(this)},
       m_daemonIpcClient{new ipc::DaemonIpcClient(this)},
@@ -183,6 +184,18 @@ MainWindow::~MainWindow()
 
   m_guiDupeChecker->close();
   m_coreProcess.cleanup();
+}
+
+void MainWindow::showEvent(QShowEvent *event)
+{
+  QMainWindow::showEvent(event);
+
+  if (!m_diagnosticLogRevealPending) {
+    return;
+  }
+
+  m_diagnosticLogRevealPending = false;
+  QTimer::singleShot(0, this, &MainWindow::revealLogForDiagnostics);
 }
 
 void MainWindow::restoreWindow()
@@ -789,7 +802,13 @@ void MainWindow::revealLogForDiagnostics()
 {
   Settings::setValue(Settings::Gui::LogExpanded, true);
 
-  if (!isVisible() || isMinimized() || m_logDock->isVisible()) {
+  if (!isVisible() || isMinimized()) {
+    m_diagnosticLogRevealPending = true;
+    return;
+  }
+
+  m_diagnosticLogRevealPending = false;
+  if (m_logDock->isVisible()) {
     return;
   }
 

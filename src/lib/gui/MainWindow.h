@@ -58,7 +58,7 @@ public:
   };
 
 public:
-  explicit MainWindow();
+  explicit MainWindow(const QString &corePath = {});
   ~MainWindow() override;
 
   [[nodiscard]] CoreMode coreMode() const
@@ -76,6 +76,7 @@ public:
 protected:
   void changeEvent(QEvent *e) override;
   bool eventFilter(QObject *obj, QEvent *event) override;
+  void showEvent(QShowEvent *event) override;
 
 private:
   /**
@@ -123,7 +124,11 @@ private:
   void closeEvent(QCloseEvent *event) override;
   void secureSocket(bool secureSocket);
   void connectSlots();
+
+private Q_SLOTS:
   void handleLogLine(const QString &line);
+
+private:
   void revealLogForDiagnostics();
   void updateLocalFingerprint();
   void updateScreenName();
@@ -173,6 +178,7 @@ private:
   QSet<QString> m_ignoredClients;
   bool m_newClientPromptShowing = false;
   bool m_serverConfigDialogVisible = false;
+  bool m_diagnosticLogRevealPending = false;
   QSize m_expandedSize = QSize();
   QStringList m_checkedClients;
   QStringList m_checkedServers;

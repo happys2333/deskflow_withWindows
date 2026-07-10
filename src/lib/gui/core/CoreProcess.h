@@ -38,7 +38,7 @@ public:
     StartFailed
   };
 
-  explicit CoreProcess(const ServerConfig &serverConfig);
+  explicit CoreProcess(const ServerConfig &serverConfig, const QString &appPath = {});
 
   void start(std::optional<ProcessMode> processMode = std::nullopt);
   void stop(std::optional<ProcessMode> processMode = std::nullopt);
