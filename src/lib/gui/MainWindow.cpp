@@ -40,6 +40,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QMetaEnum>
 #include <QNetworkAccessManager>
 #include <QNetworkInterface>
 #include <QPushButton>
@@ -47,6 +48,7 @@
 #include <QRegularExpressionValidator>
 #include <QScreen>
 #include <QScrollBar>
+#include <QTimer>
 
 #include <memory>
 
@@ -55,6 +57,20 @@
 #endif
 
 using namespace deskflow::gui;
+
+namespace {
+
+bool shouldRevealLogForDiagnostics(const QString &line)
+{
+  return line.contains(QStringLiteral("WARNING:"), Qt::CaseInsensitive) ||
+         line.contains(QStringLiteral("ERROR:"), Qt::CaseInsensitive) ||
+         line.contains(QStringLiteral("CRITICAL:"), Qt::CaseInsensitive) ||
+         line.contains(QStringLiteral("FATAL:"), Qt::CaseInsensitive) ||
+         line.contains(QStringLiteral("failed to connect to server"), Qt::CaseInsensitive) ||
+         line.contains(QStringLiteral("connection refused"), Qt::CaseInsensitive);
+}
+
+} // namespace
 
 MainWindow::MainWindow()
     : ui{std::make_unique<Ui::MainWindow>()},
@@ -762,7 +778,33 @@ void MainWindow::setTrayIcon()
 
 void MainWindow::handleLogLine(const QString &line)
 {
+  if (shouldRevealLogForDiagnostics(line)) {
+    revealLogForDiagnostics();
+  }
+
   m_logDock->appendLine(line);
+}
+
+void MainWindow::revealLogForDiagnostics()
+{
+  Settings::setValue(Settings::Gui::LogExpanded, true);
+
+  if (!isVisible() || isMinimized() || m_logDock->isVisible()) {
+    return;
+  }
+
+  qInfo("showing log because diagnostic output was received");
+  setFixedSize(16777215, 16777215);
+  m_logDock->show();
+  m_logDock->raise();
+
+  QTimer::singleShot(15, this, [this] {
+    if (!isVisible() || isMinimized() || m_logDock->isFloating()) {
+      return;
+    }
+
+    resize(m_expandedSize.isValid() ? m_expandedSize : sizeHint());
+  });
 }
 
 void MainWindow::handleUnrecognisedClient(const QString &clientName)
@@ -977,7 +1019,9 @@ void MainWindow::coreProcessStateChanged(ProcessState state)
 
 void MainWindow::coreConnectionStateChanged(ConnectionState state)
 {
-  qDebug() << "core connection state changed:" << static_cast<int>(state);
+  const auto metaEnum = QMetaEnum::fromType<ConnectionState>();
+  const auto *stateName = metaEnum.valueToKey(static_cast<int>(state));
+  qInfo("core connection state changed: %s", stateName ? stateName : "unknown");
 
   updateStatus();
 

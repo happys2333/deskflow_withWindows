@@ -47,6 +47,10 @@ if(NOT EXISTS "${app}")
   set(app "${CPACK_TEMPORARY_INSTALL_DIRECTORY}/ALL_IN_ONE/@CMAKE_PROJECT_PROPER_NAME@.app")
 endif()
 set(core_exe "${app}/Contents/MacOS/@CMAKE_PROJECT_NAME@-core")
+set(codesign_identity "@APPLE_CODESIGN_DIST@")
+if(codesign_identity STREQUAL "")
+  set(codesign_identity "-")
+endif()
 
 clear_bundle_metadata("${app}")
 run_checked(
@@ -54,7 +58,7 @@ run_checked(
   /usr/bin/codesign
   --force
   --sign
-  -
+  "${codesign_identity}"
   --identifier
   "@CMAKE_PROJECT_REV_FQDN@.core"
   "${core_exe}"
@@ -66,7 +70,7 @@ run_checked(
   --deep
   --preserve-metadata=identifier
   --sign
-  -
+  "${codesign_identity}"
   "${app}"
 )
 clear_bundle_metadata("${app}")

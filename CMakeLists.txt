@@ -156,6 +156,7 @@ if(UNIX AND NOT APPLE)
   option(BUILD_X11_SUPPORT "Build with x11 support" ON)
 elseif (APPLE)
   option(BUILD_OSX_BUNDLE "Build mac os bundle" ON)
+  set(APPLE_CODESIGN_DIST "$ENV{APPLE_CODESIGN_DIST}" CACHE STRING "Apple codesign certificate ID for macOS distribution bundles")
 endif()
 
 include(cmake/Libraries.cmake)

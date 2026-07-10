@@ -77,6 +77,15 @@ For development codesign:
 7. Configure and build
 8. To verify, run: `codesign -d -r- build/bin/Deskflow.app`
 
+For distribution bundle codesign, pass a production signing identity with
+`-DAPPLE_CODESIGN_DIST="Developer ID Application: Example (TEAMID)"`.
+The same value can be supplied through an `APPLE_CODESIGN_DIST` environment
+variable before configuring CMake.
+When this is not set, macOS packages are ad-hoc signed so anyone can build the
+project without private credentials. Ad-hoc signing is not a stable TCC identity:
+macOS Accessibility approval is tied to the binary CDHash, so users may need to
+re-approve the app after each rebuilt package.
+
 ## Build
 
 After configuring you should be able to run make to build all targets.
