@@ -55,4 +55,16 @@ void LoggerTests::noNewLine()
   QVERIFY(!newLineEmitted);
 }
 
+void LoggerTests::ignoresRecursiveTextCursorWarning()
+{
+  QSignalSpy spy(Logger::instance(), &Logger::newLine);
+  QVERIFY(spy.isValid());
+
+  Logger::instance()->handleMessage(
+      QtWarningMsg, QString(), QStringLiteral("QTextCursor::setPosition: Position '17239' out of range")
+  );
+
+  QCOMPARE(spy.count(), 0);
+}
+
 QTEST_MAIN(LoggerTests)

@@ -27,17 +27,8 @@ endfunction()
 function(clear_bundle_metadata app)
   run_checked(
     "Clearing bundle metadata"
-    /bin/sh
-    -c
-    [=[
-app="$1"
-if [ -e "$app" ]
-then
-  /usr/bin/find "$app" -exec /usr/bin/xattr -d com.apple.FinderInfo {} + 2>/dev/null || true
-  /usr/bin/find "$app" -exec /usr/bin/xattr -d 'com.apple.fileprovider.fpfs#P' {} + 2>/dev/null || true
-fi
-]=]
-    clear-bundle-metadata
+    /usr/bin/xattr
+    -cr
     "${app}"
   )
 endfunction()

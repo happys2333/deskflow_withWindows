@@ -24,6 +24,12 @@ const auto kForceDebugMessages = QStringList{
     QStringLiteral("Retrying to obtain clipboard."), QStringLiteral("Unable to obtain clipboard.")
 };
 
+bool isRecursiveTextCursorWarning(const QString &message)
+{
+  return message.startsWith(QStringLiteral("QTextCursor::setPosition: Position ")) &&
+         message.endsWith(QStringLiteral(" out of range"));
+}
+
 QString printLine(FILE *out, const QString &type, const QString &message, const QString &fileLine = {})
 {
   const auto datetime = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
@@ -52,6 +58,12 @@ QString printLine(FILE *out, const QString &type, const QString &message, const 
 
 void Logger::handleMessage(const QtMsgType type, const QString &fileLine, const QString &message)
 {
+  // Appending this Qt accessibility warning to the same text document can
+  // trigger it again while assistive software is reading the log.
+  if (isRecursiveTextCursorWarning(message)) {
+    return;
+  }
+
   auto mutatedType = type;
   if (kForceDebugMessages.contains(message)) {
     mutatedType = QtDebugMsg;

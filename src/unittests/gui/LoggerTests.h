@@ -14,6 +14,7 @@ private Q_SLOTS:
   void initTestCase();
   void newLine();
   void noNewLine();
+  void ignoresRecursiveTextCursorWarning();
 
 private:
   inline static const QString m_settingsPath = QStringLiteral("tmp/test");
