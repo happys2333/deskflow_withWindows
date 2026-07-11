@@ -489,8 +489,9 @@ For platform-specific implementation details, refer to:
 
 - **Clipboard Synchronization**
   - Clipboard grab notifications
-  - Data transfer (@ref kMsgDClipboard - text, images, HTML)
+  - Data transfer (@ref kMsgDClipboard - text, images, HTML, and self-contained file bundles)
   - Streaming for large data (v1.6+)
+  - Unknown clipboard formats are skipped, allowing file bundles to degrade safely with older peers
 
 - **File Transfer** (v1.5+)
   - Drag-and-drop initiation

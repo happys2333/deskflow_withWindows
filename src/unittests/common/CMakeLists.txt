@@ -21,3 +21,10 @@ create_test(
   SOURCE I18NTests.cpp
   WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
 )
+
+create_test(
+  NAME ClipboardFileBundleTests
+  DEPENDS common
+  SOURCE ClipboardFileBundleTests.cpp
+  WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/src/lib/common"
+)

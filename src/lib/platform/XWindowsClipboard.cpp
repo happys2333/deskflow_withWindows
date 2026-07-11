@@ -12,6 +12,7 @@
 
 #include "base/Stopwatch.h"
 #include "platform/XWindowsClipboardBMPConverter.h"
+#include "platform/XWindowsClipboardFilesConverter.h"
 #include "platform/XWindowsClipboardHTMLConverter.h"
 #include "platform/XWindowsClipboardTextConverter.h"
 #include "platform/XWindowsClipboardUCS2Converter.h"
@@ -60,6 +61,8 @@ XWindowsClipboard::XWindowsClipboard(Display *display, Window window, ClipboardI
   }
 
   // add converters, most desired first
+  m_converters.push_back(new XWindowsClipboardFilesConverter(m_display, "x-special/gnome-copied-files", true));
+  m_converters.push_back(new XWindowsClipboardFilesConverter(m_display, "text/uri-list", false));
   m_converters.push_back(new XWindowsClipboardHTMLConverter(m_display, "text/html"));
   m_converters.push_back(new XWindowsClipboardHTMLConverter(m_display, "application/x-moz-nativehtml"));
   m_converters.push_back(new XWindowsClipboardBMPConverter(m_display));

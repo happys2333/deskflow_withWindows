@@ -10,6 +10,7 @@
 
 #include "base/IEventQueue.h"
 #include "base/Log.h"
+#include "common/ClipboardFileBundle.h"
 #include "deskflow/AppUtil.h"
 #include "deskflow/DeskflowException.h"
 #include "deskflow/IPlatformScreen.h"
@@ -1108,6 +1109,7 @@ void Server::processOptions()
       } else {
         m_maximumClipboardSize = static_cast<size_t>(value);
       }
+      deskflow::ClipboardFileBundle::setCaptureLimitBytes(static_cast<quint64>(m_maximumClipboardSize) * 1024ULL);
     }
   }
   if (m_relativeMoves && !newRelativeMoves) {
@@ -1193,8 +1195,8 @@ void Server::handleClipboardGrabbed(const Event &event, BaseClientProxy *grabber
     }
   }
 
-  if (grabber == m_primaryClient && m_active != m_primaryClient) {
-    LOG_DEBUG("clipboard grabbed while active screen was changed, resending clipboard data");
+  if (grabber == m_primaryClient) {
+    LOG_DEBUG("primary clipboard grabbed, reading clipboard data immediately");
     onClipboardChanged(m_primaryClient, info->m_id, clipboard.m_clipboardSeqNum);
   }
 }
@@ -1437,7 +1439,10 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
   assert(sender == m_clients.find(clipboard.m_clipboardOwner)->second);
 
   // get data
-  sender->getClipboard(id, &clipboard.m_clipboard);
+  if (!sender->getClipboard(id, &clipboard.m_clipboard)) {
+    LOG_WARN("failed to read clipboard %d from screen \"%s\"", id, getName(sender).c_str());
+    return;
+  }
 
   std::string data = clipboard.m_clipboard.marshall();
   if (data.size() > m_maximumClipboardSize * 1024) {
@@ -1461,8 +1466,9 @@ void Server::onClipboardChanged(const BaseClientProxy *sender, ClipboardID id, u
     client->setClipboardDirty(id, client != sender);
   }
 
-  // send the new clipboard to the active screen
-  m_active->setClipboard(id, &clipboard.m_clipboard);
+  // send the new clipboard to the active screen if it did not originate there
+  if (m_active != sender)
+    m_active->setClipboard(id, &clipboard.m_clipboard);
 }
 
 void Server::onScreensaver(bool activated)

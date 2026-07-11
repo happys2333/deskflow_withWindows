@@ -32,6 +32,8 @@ if(WIN32)
     MSWindowsClipboardBitmapConverter.h
     MSWindowsClipboardFacade.cpp
     MSWindowsClipboardFacade.h
+    MSWindowsClipboardFilesConverter.cpp
+    MSWindowsClipboardFilesConverter.h
     MSWindowsClipboardHTMLConverter.cpp
     MSWindowsClipboardHTMLConverter.h
     MSWindowsClipboardUTF16Converter.cpp
@@ -121,6 +123,8 @@ elseif(UNIX)
       XWindowsClipboardBMPConverter.h
       XWindowsClipboardHTMLConverter.cpp
       XWindowsClipboardHTMLConverter.h
+      XWindowsClipboardFilesConverter.cpp
+      XWindowsClipboardFilesConverter.h
       XWindowsClipboardTextConverter.cpp
       XWindowsClipboardTextConverter.h
       XWindowsClipboardUCS2Converter.cpp
@@ -207,4 +211,8 @@ if(UNIX)
       ${GLIB2_LINK_LIBRARIES} ${LIBM_LIBRARIES}
       ${LIBEI_LINK_LIBRARIES} ${LIBPORTAL_LINK_LIBRARIES})
   endif()
+endif()
+
+if(WIN32)
+  target_link_libraries(platform Shell32)
 endif()

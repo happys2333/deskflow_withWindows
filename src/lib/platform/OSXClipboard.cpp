@@ -9,11 +9,57 @@
 
 #include "arch/ArchException.h"
 #include "base/Log.h"
+#include "common/ClipboardFileBundle.h"
 #include "platform/OSXClipboardBMPConverter.h"
 #include "platform/OSXClipboardHTMLConverter.h"
 #include "platform/OSXClipboardTextConverter.h"
 #include "platform/OSXClipboardUTF16Converter.h"
 #include "platform/OSXClipboardUTF8Converter.h"
+
+#include <QUrl>
+
+#include <cstdint>
+
+namespace {
+
+CFStringRef fileUrlFlavor()
+{
+  return CFSTR("public.file-url");
+}
+
+QStringList pasteboardFilePaths(PasteboardRef pasteboard)
+{
+  ItemCount count = 0;
+  if (PasteboardGetItemCount(pasteboard, &count) != noErr)
+    return {};
+
+  QStringList paths;
+  for (ItemCount index = 1; index <= count; ++index) {
+    PasteboardItemID item = nullptr;
+    PasteboardFlavorFlags flags = 0;
+    if (PasteboardGetItemIdentifier(pasteboard, index, &item) != noErr ||
+        PasteboardGetItemFlavorFlags(pasteboard, item, fileUrlFlavor(), &flags) != noErr) {
+      continue;
+    }
+
+    CFDataRef data = nullptr;
+    if (PasteboardCopyItemFlavorData(pasteboard, item, fileUrlFlavor(), &data) != noErr || data == nullptr)
+      continue;
+    QByteArray encodedUrl(
+        reinterpret_cast<const char *>(CFDataGetBytePtr(data)), static_cast<qsizetype>(CFDataGetLength(data))
+    );
+    CFRelease(data);
+    while (encodedUrl.endsWith('\0'))
+      encodedUrl.chop(1);
+
+    const QUrl url = QUrl::fromEncoded(encodedUrl, QUrl::StrictMode);
+    if (url.isLocalFile())
+      paths.append(url.toLocalFile());
+  }
+  return paths;
+}
+
+} // namespace
 
 //
 // OSXClipboard
@@ -80,6 +126,29 @@ void OSXClipboard::add(Format format, const std::string &data)
   if (m_pboard == nullptr)
     return;
 
+  if (format == IClipboard::Format::Files) {
+    QString error;
+    const QByteArray bundle(data.data(), static_cast<qsizetype>(data.size()));
+    const auto paths =
+        deskflow::ClipboardFileBundle::materialize(bundle, {}, deskflow::ClipboardFileBundle::captureLimits(), &error);
+    if (paths.isEmpty()) {
+      LOG_WARN("failed to materialize clipboard files: %s", error.toUtf8().constData());
+      return;
+    }
+
+    for (qsizetype index = 0; index < paths.size(); ++index) {
+      const QByteArray encodedUrl = QUrl::fromLocalFile(paths.at(index)).toEncoded(QUrl::FullyEncoded);
+      CFDataRef dataRef =
+          CFDataCreate(kCFAllocatorDefault, reinterpret_cast<const UInt8 *>(encodedUrl.constData()), encodedUrl.size());
+      if (dataRef == nullptr)
+        continue;
+      const auto itemId = reinterpret_cast<PasteboardItemID>(static_cast<uintptr_t>(index + 1));
+      PasteboardPutItemFlavor(m_pboard, itemId, fileUrlFlavor(), dataRef, kPasteboardFlavorNoFlags);
+      CFRelease(dataRef);
+    }
+    return;
+  }
+
   LOG_DEBUG("add %d bytes to clipboard format: %d", data.size(), format);
   if (format == IClipboard::Format::Text) {
     LOG_DEBUG("format of data to be added to clipboard was kText");
@@ -136,6 +205,9 @@ bool OSXClipboard::has(Format format) const
   if (m_pboard == nullptr)
     return false;
 
+  if (format == IClipboard::Format::Files)
+    return !pasteboardFilePaths(m_pboard).isEmpty();
+
   PasteboardItemID item;
   PasteboardGetItemIdentifier(m_pboard, (CFIndex)1, &item);
 
@@ -164,6 +236,18 @@ std::string OSXClipboard::get(Format format) const
 
   if (m_pboard == nullptr)
     return result;
+
+  if (format == IClipboard::Format::Files) {
+    QString error;
+    const auto bundle = deskflow::ClipboardFileBundle::fromPaths(
+        pasteboardFilePaths(m_pboard), deskflow::ClipboardFileBundle::captureLimits(), &error
+    );
+    if (bundle.isEmpty()) {
+      LOG_WARN("failed to capture clipboard files: %s", error.toUtf8().constData());
+      return {};
+    }
+    return std::string(bundle.constData(), static_cast<size_t>(bundle.size()));
+  }
 
   PasteboardGetItemIdentifier(m_pboard, (CFIndex)1, &item);
 

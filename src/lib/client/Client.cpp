@@ -12,6 +12,7 @@
 #include "base/IEventQueue.h"
 #include "base/Log.h"
 #include "client/ServerProxy.h"
+#include "common/ClipboardFileBundle.h"
 #include "common/NetworkProtocol.h"
 #include "common/Settings.h"
 #include "deskflow/Clipboard.h"
@@ -341,7 +342,8 @@ void Client::setOptions(const OptionsList &options)
     } else if (id == kOptionClipboardSharingSize) {
       index++;
       if (index != options.end()) {
-        m_maximumClipboardSize = *index;
+        m_maximumClipboardSize = *index > 0 ? static_cast<size_t>(*index) : 0;
+        deskflow::ClipboardFileBundle::setCaptureLimitBytes(static_cast<quint64>(m_maximumClipboardSize) * 1024ULL);
       }
     } else if (id == kOptionRelativeMouseMoves) {
       index++;
@@ -388,7 +390,10 @@ void Client::sendClipboard(ClipboardID id)
   if (clipboard.open(m_timeClipboard[id])) {
     clipboard.close();
   }
-  m_screen->getClipboard(id, &clipboard);
+  if (!m_screen->getClipboard(id, &clipboard)) {
+    LOG_WARN("failed to read clipboard %d", id);
+    return;
+  }
 
   // check time
   if (m_timeClipboard[id] == 0 || clipboard.getTime() != m_timeClipboard[id]) {
