@@ -8,7 +8,12 @@
 
 #include "MSWindowsClipboardTests.h"
 
+#include "common/ClipboardFileBundle.h"
 #include "platform/MSWindowsClipboard.h"
+
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 
 void MSWindowsClipboardTests::initTestCase()
 {
@@ -127,6 +132,35 @@ void MSWindowsClipboardTests::getNonEmptyText()
 
   clipboard.add(IClipboard::Format::Text, m_testString);
   QCOMPARE(clipboard.get(IClipboard::Format::Text), m_testString);
+}
+
+void MSWindowsClipboardTests::filesRoundTrip()
+{
+  QTemporaryDir source;
+  QTemporaryDir cache;
+  const QString sourceFile = QDir(source.path()).filePath(QStringLiteral("windows file.txt"));
+  QFile file(sourceFile);
+  QVERIFY(file.open(QIODevice::WriteOnly));
+  QCOMPARE(file.write("windows clipboard"), 17);
+  file.close();
+
+  QString error;
+  const auto bundle = deskflow::ClipboardFileBundle::fromPaths({sourceFile}, &error);
+  QVERIFY2(!bundle.isEmpty(), qPrintable(error));
+
+  MSWindowsClipboard clipboard(nullptr);
+  QVERIFY(clipboard.open(0));
+  QVERIFY(clipboard.empty());
+  clipboard.add(IClipboard::Format::Files, bundle.toStdString());
+  QVERIFY(clipboard.has(IClipboard::Format::Files));
+  const auto captured = QByteArray::fromStdString(clipboard.get(IClipboard::Format::Files));
+  clipboard.close();
+
+  const auto paths = deskflow::ClipboardFileBundle::materialize(captured, cache.path(), &error);
+  QCOMPARE(paths.size(), 1);
+  QFile received(paths.first());
+  QVERIFY(received.open(QIODevice::ReadOnly));
+  QCOMPARE(received.readAll(), QByteArrayLiteral("windows clipboard"));
 }
 
 void MSWindowsClipboardTests::isOwnedByDeskflow()

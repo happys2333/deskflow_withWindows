@@ -8,8 +8,13 @@
 
 #include "OSXClipboardTests.h"
 
+#include "common/ClipboardFileBundle.h"
 #include "platform/OSXClipboard.h"
 #include "platform/OSXClipboardUTF8Converter.h"
+
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
 
 void OSXClipboardTests::open()
 {
@@ -28,6 +33,35 @@ void OSXClipboardTests::singleFormat()
   clipboard.add(Text, m_testString);
   QVERIFY(clipboard.has(Text));
   QCOMPARE(clipboard.get(Text), m_testString);
+}
+
+void OSXClipboardTests::filesRoundTrip()
+{
+  QTemporaryDir source;
+  QTemporaryDir cache;
+  const QString sourceFile = QDir(source.path()).filePath(QStringLiteral("mac file.txt"));
+  QFile file(sourceFile);
+  QVERIFY(file.open(QIODevice::WriteOnly));
+  QCOMPARE(file.write("mac clipboard"), 13);
+  file.close();
+
+  QString error;
+  const auto bundle = deskflow::ClipboardFileBundle::fromPaths({sourceFile}, &error);
+  QVERIFY2(!bundle.isEmpty(), qPrintable(error));
+
+  OSXClipboard clipboard;
+  QVERIFY(clipboard.open(0));
+  QVERIFY(clipboard.empty());
+  clipboard.add(IClipboard::Format::Files, bundle.toStdString());
+  QVERIFY(clipboard.has(IClipboard::Format::Files));
+  const auto captured = QByteArray::fromStdString(clipboard.get(IClipboard::Format::Files));
+  clipboard.close();
+
+  const auto paths = deskflow::ClipboardFileBundle::materialize(captured, cache.path(), &error);
+  QCOMPARE(paths.size(), 1);
+  QFile received(paths.first());
+  QVERIFY(received.open(QIODevice::ReadOnly));
+  QCOMPARE(received.readAll(), QByteArrayLiteral("mac clipboard"));
 }
 
 void OSXClipboardTests::formatConvert_UTF8()

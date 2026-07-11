@@ -215,6 +215,40 @@ void ClipboardTests::unMarshalTextAndHtml()
   clipboard.close();
 }
 
+void ClipboardTests::unMarshalUnknownFormat()
+{
+  std::string data;
+  data.append("\0\0\0\2", 4);
+  data.append("\0\0\0\x7f", 4);
+  data.append("\0\0\0\4", 4);
+  data.append("skip", 4);
+  data.append("\0\0\0\0", 4);
+  data.append("\0\0\0\4", 4);
+  data.append("text", 4);
+
+  Clipboard clipboard;
+  clipboard.unmarshall(data, 0);
+  QVERIFY(clipboard.open(0));
+  QCOMPARE(clipboard.get(IClipboard::Format::Text), std::string("text"));
+  clipboard.close();
+}
+
+void ClipboardTests::filesRoundTrip()
+{
+  const std::string fileBundle("DFCF\0bundle", 11);
+  Clipboard source;
+  QVERIFY(source.open(0));
+  source.add(IClipboard::Format::Files, fileBundle);
+  source.close();
+
+  Clipboard destination;
+  destination.unmarshall(source.marshall(), 0);
+  QVERIFY(destination.open(0));
+  QVERIFY(destination.has(IClipboard::Format::Files));
+  QCOMPARE(destination.get(IClipboard::Format::Files), fileBundle);
+  destination.close();
+}
+
 void ClipboardTests::equalClipboards()
 {
   Clipboard clipboard1;

@@ -8,7 +8,14 @@
 
 #include "XWindowsClipboardTests.h"
 
+#include "common/ClipboardFileBundle.h"
 #include "platform/XWindowsClipboard.h"
+#include "platform/XWindowsClipboardFilesConverter.h"
+
+#include <QDir>
+#include <QFile>
+#include <QTemporaryDir>
+#include <QUrl>
 
 class TestXWindowsClipboard : public XWindowsClipboard
 {
@@ -67,6 +74,26 @@ void XWindowsClipboardTests::singleFormat()
 
   clipboard.add(XWindowsClipboard::kText, m_testString2);
   QCOMPARE(clipboard.get(XWindowsClipboard::kText), m_testString2);
+}
+
+void XWindowsClipboardTests::filesConverterRoundTrip()
+{
+  QTemporaryDir source;
+  const QString sourceFile = QDir(source.path()).filePath(QStringLiteral("linux file.txt"));
+  QFile file(sourceFile);
+  QVERIFY(file.open(QIODevice::WriteOnly));
+  QCOMPARE(file.write("linux clipboard"), 15);
+  file.close();
+
+  XWindowsClipboardFilesConverter converter(m_display, "text/uri-list", false);
+  const std::string uriList = QUrl::fromLocalFile(sourceFile).toEncoded().toStdString() + "\r\n";
+  const auto bundle = converter.toIClipboard(uriList);
+  QVERIFY(!bundle.empty());
+  const auto receivedUri = QByteArray::fromStdString(converter.fromIClipboard(bundle)).trimmed();
+  const QString receivedPath = QUrl::fromEncoded(receivedUri).toLocalFile();
+  QFile received(receivedPath);
+  QVERIFY(received.open(QIODevice::ReadOnly));
+  QCOMPARE(received.readAll(), QByteArrayLiteral("linux clipboard"));
 }
 
 XWindowsClipboard &XWindowsClipboardTests::getClipboard()

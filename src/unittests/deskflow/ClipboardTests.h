@@ -23,6 +23,8 @@ private Q_SLOTS:
   void unMarshalText();
   void unMarshalLongerText();
   void unMarshalTextAndHtml();
+  void unMarshalUnknownFormat();
+  void filesRoundTrip();
   void equalClipboards();
 
 private:

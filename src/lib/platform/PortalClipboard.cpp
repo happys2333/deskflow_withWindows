@@ -7,8 +7,10 @@
 #include "platform/PortalClipboard.h"
 
 #include "base/Log.h"
+#include "common/ClipboardFileBundle.h"
 #include "platform/EiClipboard.h"
 
+#include <algorithm>
 #include <cstring>
 #include <poll.h>
 #include <unistd.h>
@@ -100,7 +102,7 @@ QByteArray PortalClipboard::bmpToDib(const QByteArray &bmp)
   return bmp.mid(kBmpFileHeaderSize);
 }
 
-QByteArray PortalClipboard::encodeFormat(IClipboard::Format format, const QByteArray &data)
+QByteArray PortalClipboard::encodeFormat(IClipboard::Format format, const QByteArray &data, const char *mime)
 {
   if (data.isEmpty())
     return {};
@@ -128,10 +130,18 @@ QByteArray PortalClipboard::encodeFormat(IClipboard::Format format, const QByteA
 
     return png;
   }
+  if (format == IClipboard::Format::Files) {
+    QString error;
+    const bool gnomeFormat = mime != nullptr && std::strcmp(mime, "x-special/gnome-copied-files") == 0;
+    const auto uriList = ClipboardFileBundle::toUriList(data, gnomeFormat, {}, &error);
+    if (uriList.isEmpty())
+      LOG_WARN("failed to materialize clipboard files: %s", error.toUtf8().constData());
+    return uriList;
+  }
   return data;
 }
 
-QByteArray PortalClipboard::decodeFormat(IClipboard::Format format, const QByteArray &bytes)
+QByteArray PortalClipboard::decodeFormat(IClipboard::Format format, const QByteArray &bytes, qint64 maxBytes)
 {
   if (bytes.isEmpty())
     return {};
@@ -152,6 +162,15 @@ QByteArray PortalClipboard::decodeFormat(IClipboard::Format format, const QByteA
     }
 
     return bmpToDib(bmp);
+  }
+  if (format == IClipboard::Format::Files) {
+    ClipboardFileBundle::Limits limits;
+    limits.maxBytes = static_cast<quint64>(std::max<qint64>(0, maxBytes));
+    QString error;
+    const auto bundle = ClipboardFileBundle::fromUriList(bytes, limits, &error);
+    if (bundle.isEmpty())
+      LOG_WARN("failed to capture clipboard files: %s", error.toUtf8().constData());
+    return bundle;
   }
   return bytes;
 }
@@ -228,7 +247,7 @@ void PortalClipboard::serveSelectionTransfer(EiClipboard *cache, XdpSession *ses
     raw = QByteArray::fromStdString(cache->get(requested->format));
   cache->close();
 
-  const auto data = encodeFormat(requested->format, raw);
+  const auto data = encodeFormat(requested->format, raw, mime);
   if (data.isEmpty()) {
     LOG_DEBUG("clipboard has no data for mime: %s", mime);
     xdp_session_selection_write_done(session, serial, false);
@@ -306,7 +325,7 @@ bool PortalClipboard::readSelectionIntoCache(
       bytes.replace("\r\n", "\n");
     }
 
-    auto data = decodeFormat(entry.format, bytes);
+    auto data = decodeFormat(entry.format, bytes, maxBytes);
     if (data.isEmpty())
       continue;
 

@@ -27,6 +27,8 @@ public:
 
   // Listed in preference order: richer formats first.
   static constexpr SupportedMime kSupportedMimes[] = {
+      {"x-special/gnome-copied-files", IClipboard::Format::Files},
+      {"text/uri-list", IClipboard::Format::Files},
       {"image/png", IClipboard::Format::Bitmap},
       {"text/plain;charset=utf-8", IClipboard::Format::Text},
       {"text/plain", IClipboard::Format::Text},
@@ -39,8 +41,8 @@ public:
   static QByteArray formatMimeTypes(const char *const *mimeTypes);
   static const SupportedMime *findSupportedMime(const char *mime);
   static const SupportedMime *pickSupportedMime(const char *const *available);
-  static QByteArray encodeFormat(IClipboard::Format format, const QByteArray &data);
-  static QByteArray decodeFormat(IClipboard::Format format, const QByteArray &bytes);
+  static QByteArray encodeFormat(IClipboard::Format format, const QByteArray &data, const char *mime = nullptr);
+  static QByteArray decodeFormat(IClipboard::Format format, const QByteArray &bytes, qint64 maxBytes);
   static QByteArray readSelectionBytes(XdpSession *session, const char *mime, qint64 maxBytes);
 
   /// Advertise the cache's formats to the portal selection.

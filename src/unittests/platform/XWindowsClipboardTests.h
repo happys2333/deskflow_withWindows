@@ -24,6 +24,7 @@ private Q_SLOTS:
   void cleanupTestCase();
   void open();
   void singleFormat();
+  void filesConverterRoundTrip();
 #endif
 private:
   Log m_log;

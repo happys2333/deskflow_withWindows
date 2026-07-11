@@ -141,10 +141,11 @@ This section contains options used when in server mode it will begin with `[serv
 
 |Option              |    Valid Values   |Description|
 |:-------------------|:-----------------:|:-----------|
-| clipboardSize      | int > 0           | Deskflow will send a maximum of `N` megabytes of clipboard data to another computer when the mouse transitions to that computer.|
+| clipboardSize      | int > 0           | Deskflow will send a maximum of `N` megabytes of clipboard data to another computer. This limit includes copied file contents.|
 | defaultLockToComputerState| `true` or `false` | When this is true the cursor is locked to the new computer when switching (default: false)|
 | disableLockToComputer| `true` or `false` | If false pressing scroll lock will toggle your cursor to be locked to current computer. (default: false) |
 | enableClipboard    | `true` or `false` | When `true` the clipboard will be shared with all clients If set to ''true'' then clipboard shared and the ''clipboardSharingSize'' setting will be used. If set to false, then clipboard sharing will be disabled and the the ''clipboardSharingSize'' setting will be ignored.|
+
 | enableHeartbeat    | `true` or `false` | Send a heartbeat to connected clients; this has been replaced by internal keep alive (default: false)|
 | enableSwitchDelay  | `true` or `false` | Switching will be delayed by the set value (default: false)|
 | enableSwitchDoubleTap  | `true` or `false` | Enables the doubletap to switch method (default: false)|
@@ -159,6 +160,11 @@ This section contains options used when in server mode it will begin with `[serv
 | switchDoubleTap    | int               | Deskflow won't switch computers when the mouse reaches the edge of a computer unless it's moved away from the edge and then back to the edge within `N` milliseconds. With the option you have to quickly tap the edge twice to switch. This helps prevent unintentional switching when working near the edge.|
 |win32KeepForeground | `true` or `false` | If set to ''true'' (the default), Deskflow will grab the foreground focus on a Windows server (thereby putting all other windows in the background) upon switching to a client. If set to ''false'', it will leave the currently foreground window in the foreground. Deskflow grabs the focus to avoid issues with other apps interfering with Deskflow's ability to read the hardware inputs. |
 | xdpRestoreToken   | UUID               | Restore token provided by XDG portals |
+
+Copied files are transferred with their contents rather than source-machine paths. Deskflow rejects symbolic links and unsafe
+relative paths, verifies file hashes, and materializes received files under the platform cache directory. Expired entries are
+removed during a later file clipboard transfer after 24 hours. File bundles count toward `clipboardSize`; peers that do not
+support file clipboards ignore this format and continue sharing text, HTML, and images normally.
 
  - You can use both the ''switchDelay'' and ''switchDoubleTap'' options at the same time. Deskflow will switch when either requirement is satisfied.
 

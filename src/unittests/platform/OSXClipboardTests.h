@@ -14,6 +14,7 @@ private Q_SLOTS:
   // Test are run in order top to bottom
   void open();
   void singleFormat();
+  void filesRoundTrip();
   void formatConvert_UTF8();
 
 private:
