@@ -242,9 +242,12 @@ private:
 class TestServerProxy : public ServerProxy
 {
 public:
-  using ServerProxy::ConnectionResult;
-  using ServerProxy::parseHandshakeMessage;
   using ServerProxy::ServerProxy;
+
+  bool parseHandshakeMessageReturnsDisconnect(const uint8_t *code)
+  {
+    return parseHandshakeMessage(code) == ConnectionResult::Disconnect;
+  }
 };
 
 Client *undereferenceableClient()
@@ -320,9 +323,7 @@ void ServerProxyTests::parseHandshakeMessage_protocolError_queuesRefusalRequest(
   FakeStream stream;
   TestServerProxy proxy(undereferenceableClient(), &stream, &events);
 
-  const auto result = proxy.parseHandshakeMessage(reinterpret_cast<const uint8_t *>(kMsgEBad));
-
-  QVERIFY(result == TestServerProxy::ConnectionResult::Disconnect);
+  QVERIFY(proxy.parseHandshakeMessageReturnsDisconnect(reinterpret_cast<const uint8_t *>(kMsgEBad)));
   QCOMPARE(events.addedEvents().size(), static_cast<size_t>(1));
   const auto *request = disconnectRequest(events);
   QVERIFY(request != nullptr);
